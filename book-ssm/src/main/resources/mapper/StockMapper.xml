@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bookssm.mapper.StockMapper">
+
+    <resultMap id="stockBatchMap" type="com.bookssm.entity.StockBatch">
+        <id property="id" column="id"/>
+        <result property="bookId" column="book_id"/>
+        <result property="bookTitle" column="book_title"/>
+        <result property="isbn" column="isbn"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="quantity" column="quantity"/>
+        <result property="remainQuantity" column="remain_quantity"/>
+        <result property="costPrice" column="cost_price"/>
+        <result property="supplier" column="supplier"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="operatorName" column="operator_name"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="stockRecordMap" type="com.bookssm.entity.StockRecord">
+        <id property="id" column="id"/>
+        <result property="bookId" column="book_id"/>
+        <result property="bookTitle" column="book_title"/>
+        <result property="isbn" column="isbn"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="type" column="type"/>
+        <result property="quantity" column="quantity"/>
+        <result property="beforeStock" column="before_stock"/>
+        <result property="afterStock" column="after_stock"/>
+        <result property="orderId" column="order_id"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="operatorName" column="operator_name"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="batchColumns">
+        sb.id, sb.book_id, b.title AS book_title, b.isbn, sb.batch_no, sb.quantity,
+        sb.remain_quantity, sb.cost_price, sb.supplier, sb.operator_id, u.username AS operator_name,
+        sb.remark, sb.created_at
+    </sql>
+
+    <sql id="recordColumns">
+        sr.id, sr.book_id, b.title AS book_title, b.isbn, sr.batch_id, sb.batch_no,
+        sr.type, sr.quantity, sr.before_stock, sr.after_stock, sr.order_id,
+        sr.operator_id, u.username AS operator_name, sr.remark, sr.created_at
+    </sql>
+
+    <select id="findBookStockForUpdate" resultType="int">
+        SELECT stock
+        FROM book
+        WHERE id = #{bookId}
+        FOR UPDATE
+    </select>
+
+    <update id="updateBookStock">
+        UPDATE book
+        SET stock = #{stock}
+        WHERE id = #{bookId}
+    </update>
+
+    <insert id="insertBatch" parameterType="com.bookssm.entity.StockBatch"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stock_batch (
+            book_id, batch_no, quantity, remain_quantity, cost_price, supplier, operator_id, remark
+        )
+        VALUES (
+            #{bookId}, #{batchNo}, #{quantity}, #{remainQuantity}, #{costPrice}, #{supplier}, #{operatorId}, #{remark}
+        )
+    </insert>
+
+    <insert id="insertRecord" parameterType="com.bookssm.entity.StockRecord"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stock_record (
+            book_id, batch_id, type, quantity, before_stock, after_stock,
+            order_id, operator_id, remark
+        )
+        VALUES (
+            #{bookId}, #{batchId}, #{type}, #{quantity}, #{beforeStock}, #{afterStock},
+            #{orderId}, #{operatorId}, #{remark}
+        )
+    </insert>
+
+    <select id="findRecordById" resultMap="stockRecordMap">
+        SELECT <include refid="recordColumns"/>
+        FROM stock_record sr
+        LEFT JOIN book b ON sr.book_id = b.id
+        LEFT JOIN stock_batch sb ON sr.batch_id = sb.id
+        LEFT JOIN user u ON sr.operator_id = u.id
+        WHERE sr.id = #{id}
+    </select>
+
+    <select id="findAvailableBatchesForUpdate" resultMap="stockBatchMap">
+        SELECT <include refid="batchColumns"/>
+        FROM stock_batch sb
+        LEFT JOIN book b ON sb.book_id = b.id
+        LEFT JOIN user u ON sb.operator_id = u.id
+        WHERE sb.book_id = #{bookId}
+          AND sb.remain_quantity > 0
+        ORDER BY sb.created_at ASC, sb.id ASC
+        FOR UPDATE
+    </select>
+
+    <update id="updateBatchRemain">
+        UPDATE stock_batch
+        SET remain_quantity = #{afterRemain}
+        WHERE id = #{id}
+          AND remain_quantity = #{beforeRemain}
+    </update>
+
+    <select id="countBatches" resultType="long">
+        SELECT COUNT(1)
+        FROM stock_batch sb
+        <where>
+            <if test="bookId != null">
+                sb.book_id = #{bookId}
+            </if>
+        </where>
+    </select>
+
+    <select id="findBatches" resultMap="stockBatchMap">
+        SELECT <include refid="batchColumns"/>
+        FROM stock_batch sb
+        LEFT JOIN book b ON sb.book_id = b.id
+        LEFT JOIN user u ON sb.operator_id = u.id
+        <where>
+            <if test="bookId != null">
+                sb.book_id = #{bookId}
+            </if>
+        </where>
+        ORDER BY sb.created_at DESC, sb.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countRecords" resultType="long">
+        SELECT COUNT(1)
+        FROM stock_record sr
+        <where>
+            <if test="bookId != null">
+                AND sr.book_id = #{bookId}
+            </if>
+            <if test="type != null and type != ''">
+                AND sr.type = #{type}
+            </if>
+        </where>
+    </select>
+
+    <select id="findRecords" resultMap="stockRecordMap">
+        SELECT <include refid="recordColumns"/>
+        FROM stock_record sr
+        LEFT JOIN book b ON sr.book_id = b.id
+        LEFT JOIN stock_batch sb ON sr.batch_id = sb.id
+        LEFT JOIN user u ON sr.operator_id = u.id
+        <where>
+            <if test="bookId != null">
+                AND sr.book_id = #{bookId}
+            </if>
+            <if test="type != null and type != ''">
+                AND sr.type = #{type}
+            </if>
+        </where>
+        ORDER BY sr.created_at DESC, sr.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="findTotalStock" resultType="int">
+        SELECT stock
+        FROM book
+        WHERE id = #{bookId}
+    </select>
+</mapper>

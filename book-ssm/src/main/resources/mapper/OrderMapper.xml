@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bookssm.mapper.OrderMapper">
+
+    <resultMap id="orderMap" type="com.bookssm.entity.Order">
+        <id property="id" column="id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="userId" column="user_id"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="status" column="status"/>
+        <result property="receiverName" column="receiver_name"/>
+        <result property="receiverPhone" column="receiver_phone"/>
+        <result property="receiverAddress" column="receiver_address"/>
+        <result property="username" column="username"/>
+        <result property="nickname" column="nickname"/>
+        <result property="paidAt" column="paid_at"/>
+        <result property="confirmedAt" column="confirmed_at"/>
+        <result property="deliveredAt" column="delivered_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="orderItemMap" type="com.bookssm.entity.OrderItem">
+        <id property="id" column="id"/>
+        <result property="orderId" column="order_id"/>
+        <result property="bookId" column="book_id"/>
+        <result property="bookTitle" column="book_title"/>
+        <result property="bookPrice" column="book_price"/>
+        <result property="quantity" column="quantity"/>
+        <result property="subtotal" column="subtotal"/>
+    </resultMap>
+
+    <sql id="orderColumns">
+        id, order_no, user_id, total_amount, status, receiver_name, receiver_phone,
+        receiver_address, paid_at, confirmed_at, delivered_at, completed_at, cancelled_at,
+        remark, created_at, updated_at
+    </sql>
+
+    <sql id="adminOrderColumns">
+        o.id, o.order_no, o.user_id, o.total_amount, o.status, o.receiver_name, o.receiver_phone,
+        o.receiver_address, u.username, u.nickname, o.paid_at, o.confirmed_at, o.delivered_at,
+        o.completed_at, o.cancelled_at, o.remark, o.created_at, o.updated_at
+    </sql>
+
+    <insert id="insertOrder" parameterType="com.bookssm.entity.Order" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `orders` (
+            order_no, user_id, total_amount, status, receiver_name,
+            receiver_phone, receiver_address, remark
+        )
+        VALUES (
+            #{orderNo}, #{userId}, #{totalAmount}, #{status}, #{receiverName},
+            #{receiverPhone}, #{receiverAddress}, #{remark}
+        )
+    </insert>
+
+    <insert id="insertOrderItem" parameterType="com.bookssm.entity.OrderItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO order_item (order_id, book_id, book_title, book_price, quantity, subtotal)
+        VALUES (#{orderId}, #{bookId}, #{bookTitle}, #{bookPrice}, #{quantity}, #{subtotal})
+    </insert>
+
+    <select id="findByIdAndUser" resultMap="orderMap">
+        SELECT <include refid="orderColumns"/>
+        FROM `orders`
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="findById" resultMap="orderMap">
+        SELECT <include refid="adminOrderColumns"/>
+        FROM `orders` o
+        LEFT JOIN user u ON o.user_id = u.id
+        WHERE o.id = #{id}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="orderMap">
+        SELECT <include refid="orderColumns"/>
+        FROM `orders`
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
+    <select id="countByUser" resultType="long">
+        SELECT COUNT(1)
+        FROM `orders`
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="findByUser" resultMap="orderMap">
+        SELECT <include refid="orderColumns"/>
+        FROM `orders`
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(1)
+        FROM `orders` o
+        LEFT JOIN user u ON o.user_id = u.id
+        <where>
+            <if test="status != null and status != ''">
+                AND o.status = #{status}
+            </if>
+            <if test="username != null and username != ''">
+                AND u.username LIKE CONCAT('%', #{username}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="findAll" resultMap="orderMap">
+        SELECT <include refid="adminOrderColumns"/>
+        FROM `orders` o
+        LEFT JOIN user u ON o.user_id = u.id
+        <where>
+            <if test="status != null and status != ''">
+                AND o.status = #{status}
+            </if>
+            <if test="username != null and username != ''">
+                AND u.username LIKE CONCAT('%', #{username}, '%')
+            </if>
+        </where>
+        ORDER BY o.created_at DESC, o.id DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="findItemsByOrderId" resultMap="orderItemMap">
+        SELECT id, order_id, book_id, book_title, book_price, quantity, subtotal
+        FROM order_item
+        WHERE order_id = #{orderId}
+        ORDER BY id ASC
+    </select>
+
+    <update id="confirmOrder">
+        UPDATE `orders`
+        SET status = 'CONFIRMED',
+            confirmed_at = NOW()
+        WHERE id = #{id}
+          AND status = 'PENDING'
+    </update>
+
+    <update id="shipOrder">
+        UPDATE `orders`
+        SET status = 'DELIVERED',
+            delivered_at = NOW()
+        WHERE id = #{id}
+          AND status = 'CONFIRMED'
+    </update>
+</mapper>
