@@ -14,8 +14,11 @@
            http://www.springframework.org/schema/aop
            http://www.springframework.org/schema/aop/spring-aop.xsd">
 
-    <!-- 加载 jdbc.properties -->
-    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!-- 加载数据库配置文件（支持密钥分离） -->
+    <context:property-placeholder
+            location="classpath:db-secret.properties,
+                  classpath:jdbc.properties"
+            ignore-unresolvable="true"/>
 
     <!-- 扫描 service、mapper 等组件（不包含 Controller 和 ControllerAdvice） -->
     <context:component-scan base-package="com.bookssm">

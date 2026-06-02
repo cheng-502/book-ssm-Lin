@@ -1,10 +1,11 @@
 <template>
   <el-container class="layout">
-    <el-aside width="220px">
-      <div class="brand" style="height:56px;line-height:56px;padding-left:20px;background:#fff;border-bottom:1px solid #e5e7eb">
-        管理后台
+    <el-aside class="layout-sidebar" width="220px">
+      <div class="layout-brand">
+        <div class="brand">管理后台</div>
+        <div class="layout-brand-subtitle">Book Inventory</div>
       </div>
-      <el-menu :default-active="$route.path" router style="height:calc(100vh - 56px)">
+      <el-menu class="layout-menu" :default-active="$route.path" router>
         <el-menu-item index="/admin">首页</el-menu-item>
         <el-menu-item index="/admin/categories">分类管理</el-menu-item>
         <el-menu-item index="/admin/books">图书管理</el-menu-item>
@@ -16,9 +17,9 @@
     </el-aside>
     <el-container>
       <el-header class="layout-header">
-        <div>基于 SSM 的图书进销存管理系统</div>
-        <div>
-          <span style="margin-right:12px">{{ user?.username }}</span>
+        <div class="layout-title">基于 SSM 的图书进销存管理系统</div>
+        <div class="layout-account">
+          <span class="layout-account-name">{{ user?.username }}</span>
           <el-button size="small" @click="logout">退出</el-button>
         </div>
       </el-header>

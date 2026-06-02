@@ -16,5 +16,7 @@
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "puppeteer": "^25.1.0"
+  }
 }

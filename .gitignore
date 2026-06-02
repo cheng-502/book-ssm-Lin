@@ -22,3 +22,9 @@ Thumbs.db
 # Env (keep .env.development, ignore others)
 book-ssm-frontend/.env.local
 book-ssm-frontend/.env.production
+
+.agents/
+.impeccable/
+DESIGN.md
+PRODUCT.md
+book-ssm/src/main/resources/db-secret.properties

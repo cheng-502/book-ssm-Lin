@@ -1,32 +1,63 @@
 <template>
-  <div class="page">
-    <h2 class="page-title">图书列表</h2>
-    <div class="toolbar">
-      <el-input v-model="query.title" placeholder="书名关键词" style="width:180px" clearable />
-      <el-select v-model="query.categoryId" placeholder="分类" style="width:160px" clearable>
+  <div class="page user-page">
+    <div class="user-page-head">
+      <div>
+        <h2 class="page-title">图书列表</h2>
+        <p class="page-subtitle">按书名、分类和价格筛选可购买图书。</p>
+      </div>
+    </div>
+
+    <div class="user-filter">
+      <el-input v-model="query.title" class="filter-control" placeholder="书名关键词" clearable />
+      <el-select v-model="query.categoryId" class="filter-control" placeholder="分类" clearable>
         <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
       </el-select>
-      <el-input-number v-model="minPrice" :min="0" placeholder="最低价" />
-      <el-input-number v-model="maxPrice" :min="0" placeholder="最高价" />
-      <el-button type="primary" @click="load">查询</el-button>
+      <el-input-number v-model="minPrice" class="filter-number" :min="0" placeholder="最低价" />
+      <el-input-number v-model="maxPrice" class="filter-number" :min="0" placeholder="最高价" />
+      <el-button type="primary" @click="load">查询图书</el-button>
     </div>
-    <el-table :data="filteredBooks" border>
-      <el-table-column prop="isbn" label="ISBN" width="150" />
-      <el-table-column prop="title" label="书名" min-width="160" />
-      <el-table-column prop="author" label="作者" width="120" />
-      <el-table-column prop="publisher" label="出版社" width="160" />
-      <el-table-column prop="categoryName" label="分类" width="120" />
-      <el-table-column prop="price" label="售价" width="100" />
-      <el-table-column prop="stock" label="库存" width="80" />
-      <el-table-column label="操作" width="180">
-        <template #default="{ row }">
-          <el-input-number v-model="row.buyQuantity" :min="1" :max="row.stock || 1" size="small" />
-          <el-button type="primary" size="small" @click="addCart(row)">加入</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+
+    <div v-if="filteredBooks.length" class="book-grid">
+      <article v-for="book in filteredBooks" :key="book.id" class="book-card">
+        <div class="book-card-main">
+          <div class="book-title">{{ book.title }}</div>
+          <div class="book-meta">{{ book.author }} · {{ book.publisher }}</div>
+          <div class="book-tags">
+            <el-tag type="info">{{ book.categoryName || '未分类' }}</el-tag>
+            <el-tag :type="book.stock > 0 ? 'success' : 'danger'">库存 {{ book.stock || 0 }}</el-tag>
+          </div>
+          <div class="book-isbn">ISBN {{ book.isbn }}</div>
+        </div>
+        <div class="book-card-action">
+          <div class="price-text">￥{{ formatPrice(book.price) }}</div>
+          <div class="quantity-row">
+            <el-input-number
+              v-model="book.buyQuantity"
+              class="quantity-control"
+              :disabled="!book.stock"
+              :min="1"
+              :max="book.stock || 1"
+              size="small"
+            />
+            <el-button
+              type="primary"
+              size="small"
+              :disabled="!book.stock"
+              @click="addCart(book)"
+            >
+              加入购物车
+            </el-button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <el-empty v-else class="user-empty" description="暂无符合条件的图书">
+      <el-button type="primary" @click="resetFilters">清空筛选</el-button>
+    </el-empty>
+
     <el-pagination
-      style="margin-top:16px"
+      v-if="page.total"
       layout="prev, pager, next, total"
       :total="page.total"
       :page-size="query.pageSize"
@@ -54,6 +85,18 @@ const filteredBooks = computed(() => books.value.filter(book => {
   if (maxPrice.value !== null && maxPrice.value !== undefined && maxPrice.value > 0 && price > maxPrice.value) return false
   return true
 }))
+
+function formatPrice(value) {
+  return Number(value || 0).toFixed(2)
+}
+
+function resetFilters() {
+  query.title = ''
+  query.categoryId = ''
+  minPrice.value = null
+  maxPrice.value = null
+  load()
+}
 
 async function loadCategories() {
   categories.value = await request.get('/api/categories')

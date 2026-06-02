@@ -7,8 +7,8 @@
         <el-menu-item index="/cart">购物车</el-menu-item>
         <el-menu-item index="/orders">我的订单</el-menu-item>
       </el-menu>
-      <div>
-        <span style="margin-right:12px">{{ user?.username || '未登录' }}</span>
+      <div class="layout-account">
+        <span class="layout-account-name">{{ user?.username || '未登录' }}</span>
         <el-button size="small" @click="logout">退出</el-button>
       </div>
     </el-header>
