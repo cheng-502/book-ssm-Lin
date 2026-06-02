@@ -40,13 +40,42 @@ mysql -u root -p book_inventory < book-ssm/sql/book_inventory.sql
 
 ### 2. 配置数据库连接
 
-在 `book-ssm/src/main/resources/` 下创建 `db-secret.properties`：
+项目采用**密钥与配置分离**策略：密码不写入 `jdbc.properties`（该文件会提交到 Git），而是放在独立的 **Java Properties 文件** `db-secret.properties` 中（已加入 `.gitignore`，不提交）。
 
-```properties
-db.password=你的MySQL密码
+**第一步：创建密钥文件**
+
+在 `book-ssm/src/main/resources/` 下新建 `db-secret.properties`（纯文本文件，格式同 `jdbc.properties`）：
+
+```bash
+# 直接在终端执行以下命令即可创建
+echo "db.password=你的MySQL密码" > book-ssm/src/main/resources/db-secret.properties
 ```
 
-`jdbc.properties` 通过 `${db.password}` 占位符引用，密码文件已加入 `.gitignore`。
+文件内容示例：
+```properties
+db.password=123456
+```
+
+> `db-secret.properties` 是 **Java Properties 格式文件**，与 `jdbc.properties` 类型相同，由 Spring 的 `<context:property-placeholder>` 统一加载。
+
+**第二步：理解占位符机制**
+
+`jdbc.properties` 中写的是占位符而非真实密码：
+```properties
+jdbc.password=${db.password}   # Spring 会自动从 db-secret.properties 中查找 db.password 的值
+```
+
+`applicationContext.xml` 配置了两个文件**先后加载**：
+```xml
+<context:property-placeholder
+    location="classpath:db-secret.properties,      <!-- 先加载密钥 -->
+              classpath:jdbc.properties"            <!-- 后加载模板 -->
+    ignore-unresolvable="true"/>
+```
+
+Spring 先读 `db-secret.properties` 得到 `db.password`，再读 `jdbc.properties` 时将 `${db.password}` 替换为真实值，最终 Druid 连接池拿到完整密码。
+
+如果 `db-secret.properties` 不存在或缺少 `db.password` 键，`jdbc.password` 的值会保持为字面量 `${db.password}`，数据库连接将失败。
 
 ### 3. 启动后端
 
