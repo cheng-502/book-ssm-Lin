@@ -1,0 +1,30 @@
+# Maven
+book-ssm/target/
+
+# Node
+book-ssm-frontend/node_modules/
+book-ssm-frontend/dist/
+
+# IDE
+.idea/
+*.iml
+
+# Claude Code
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env (keep .env.development, ignore others)
+book-ssm-frontend/.env.local
+book-ssm-frontend/.env.production
+
+.agents/
+.impeccable/
+DESIGN.md
+PRODUCT.md
+book-ssm/src/main/resources/db-secret.properties
