@@ -1,420 +1,223 @@
-# 图书进销存管理系统 — 开发文档
+ 图书进销存管理系统 — 开发者文档
+
+ 一、项目概览
+
+图书进销存管理系统，面向中小型书店的 Web 应用，覆盖入库、销售、库存三大环节。采用传统 SSM（Spring 5 + Spring MVC + MyBatis） 三层架构，前端基于 Vue 3 + Element Plus，前后端分离部署。
+该项目已经托管到github上：cheng-502/book-ssm-Lin: 一款基于 Spring 5 + Spring MVC + MyBatis（传统 SSM 架构） 的图书进销存管理系统。
+https://github.com/cheng-502/book-ssm-Lin
+团队通过git实现协作开发
+
+分工：
+
+| 成员 | 角色 | 负责模块 | 具体工作内容 | 涉及文件 |
+|---|---|---|---|---|
+| 成员一 | 数据库设计与数据层 | 数据库设计 | 1. 需求分析，绘制 E-R 图<br>2. 编写 `book_inventory.sql`（8 张表、索引、测试数据）<br>3. 编写 MyBatis Mapper XML（6 个映射文件，含 resultMap、动态 SQL、多表 LEFT JOIN）<br>4. 编写 Mapper 接口（6 个，含 @Param 注解）<br>5. 编写 `database.md` 数据库设计文档 | `sql/book_inventory.sql`；`resources/mapper/*.xml`；`mapper/*.java`；`database.md` |
+| 成员二 | 前端开发与 UI 优化 | 前端页面 | 1. Vue 3 + Vite 项目初始化，配置 Element Plus + Axios + Vue Router<br>2. 开发用户端 3 页（图书浏览/搜索、购物车、我的订单）<br>3. 开发管理端 7 页（首页、分类管理、图书管理、入库、批次、流水、订单管理）<br>4. Axios 封装（拦截器、统一错误处理、URLSearchParams 表单编码）<br>5. 路由守卫（管理员页面权限）<br>6. UI 重设计与优化（协作者分支 `frontend-impeccable-redesign`）<br>7. 编写 `DESIGN.md`、`PRODUCT.md` | `book-ssm-frontend/src/` 全部文件；`book-ssm-frontend/DESIGN.md`；`book-ssm-frontend/PRODUCT.md` |
+| 成员三 | 演讲与 API 接口实现 | 演讲与接口 | 1. 设计 REST API 路由表（17 个用户端 + 8 个管理端端点）<br>2. 编写全部 8 个 Controller（Auth、Book、Category、Cart、Order、AdminOrder、Stock、Health）<br>3. 编写统一响应格式 `Result.java` + 分页 `PageResult.java`<br>4. 项目答辩准备：演示流程编排、PPT 制作、现场演示<br>5. 编写 `SSM项目代码审查报告.md` 中的答辩题库<br>6. 项目整体宣讲与技术亮点提炼 | `controller/*.java`；`dto/*.java`；`SSM项目代码审查报告.md` |
+| 成员四 | 后端核心架构 | SSM 整合 + Service 层 | 1. SSM 三大配置文件：`applicationContext.xml`、`spring-mvc.xml`、`web.xml`（父子容器）<br>2. `mybatis-config.xml` 全局配置<br>3. 8 个 Entity 实体类设计<br>4. 7 个 Service 接口 + 7 个 ServiceImpl（含核心业务逻辑）<br>5. FIFO 出库实现：悲观锁 + 乐观锁 + `@Transactional` 三层并发控制<br>6. 订单号/批次号唯一性生成（`OrderNoUtil`、`BatchNoUtil`） | `resources/applicationContext.xml`；`resources/spring-mvc.xml`；`webapp/WEB-INF/web.xml`；`service/*.java`；`service/impl/*.java`；`entity/*.java`；`util/OrderNoUtil.java`；`util/BatchNoUtil.java` |
+| 成员五 | 后端安全与基础设施 | AOP + 鉴权 + 跨域 | 1. 登录鉴权：`LoginInterceptor` + `SessionUtil`（HttpSession）<br>2. 跨域方案：`CorsFilter`（Servlet Filter，处理 OPTIONS 预检 + Credentials）<br>3. AOP 日志切面：`LogAspect`（@Aspect + @Around，记录 Service 方法耗时）<br>4. 密码加密：`MD5Util`<br>5. JdbcTemplate Bean 配置与演示端点 `/api/health/db`<br>6. 数据库密钥分离：`db-secret.properties` + `.gitignore` | `interceptor/LoginInterceptor.java`；`filter/CorsFilter.java`；`aspect/LogAspect.java`；`util/MD5Util.java`；`util/SessionUtil.java`；`controller/HealthController.java`（db 端点部分） |
+| 成员六 | 后端异常处理与文档 | 异常处理 + 文档 + 测试 | 1. 全局异常处理：`GlobalExceptionHandler`（@ControllerAdvice + 统一 JSON 错误响应）<br>2. 自定义业务异常：`BusinessException`<br>3. 编写 `README.md`（根目录 + book-ssm 子目录）<br>4. 编写 `DEVELOPMENT.md`（本文件，含技术架构、核心流程、演示指南）<br>5. 日志配置：`log4j.properties`（mapper 包 DEBUG 级别输出 SQL）<br>6. 数据库测试数据准备与 API 接口验证 | `exception/*.java`；`README.md`；`DEVELOPMENT.md`；`resources/log4j.properties` |
+
+| 维度 | 选型 | 说明 |
+|---|---|---|
+| 后端框架 | Spring 5.3.30 + Spring MVC + MyBatis 3.5.14 | XML 配置驱动，非 Spring Boot |
+| AOP | AspectJ + 自定义 @Aspect 切面 | LogAspect 记录 Service 层方法耗时 |
+| 数据库 | MySQL 8.x + Druid 1.2.20 + JdbcTemplate | MyBatis 为 ORM 主体，JdbcTemplate 补充演示 |
+| 事务 | DataSourceTransactionManager + @Transactional | 声明式事务，FIFO 出库含悲观锁+乐观锁 |
+| 鉴权 | HttpSession + LoginInterceptor | 教学级 Session 鉴权 |
+| 跨域 | Servlet Filter（CorsFilter） | 在 DispatcherServlet 前处理 OPTIONS |
+| 前端 | Vue 3.5 + Vite 6 + Element Plus 2.9 + Axios | 前后端分离 SPA |
+| 部署 | WAR → Tomcat 9 | 端口 8080，Context Path `/book-ssm` |
+| 数据库密钥管理 | db-secret.properties 独立文件 | 密钥与配置分离，不入 Git |
 
 ---
 
-一、项目背景
+ 二、项目结构
 
-图书进销存管理系统是一个面向中小型书店或图书批发商的 Web 应用。核心需求是管理图书的入库（进货）、上架销售（销）、库存盘点（存）三大环节，同时支持用户端在线选购、下单，管理端处理订单并发货。
+根目录
+├── book-ssm/                       后端（SSM + Maven）
+│   ├── pom.xml                     依赖管理
+│   ├── sql/book_inventory.sql      建库脚本 + 测试数据
+│   ├── README.md                   后端详细文档（API 列表）
+│   ├── DEVELOPMENT.md              本文件
+│   └── src/main/
+│       ├── java/com/bookssm/
+│       │   ├── controller/         8 个 REST Controller
+│       │   ├── service/            7 个接口 + 7 个实现
+│       │   ├── mapper/             6 个 MyBatis 接口
+│       │   ├── entity/             8 个实体类
+│       │   ├── dto/                Result + PageResult
+│       │   ├── aspect/             LogAspect（AOP 日志切面）
+│       │   ├── exception/          BusinessException + GlobalExceptionHandler
+│       │   ├── filter/             CorsFilter
+│       │   ├── interceptor/        LoginInterceptor
+│       │   └── util/               MD5Util, OrderNoUtil, BatchNoUtil, SessionUtil
+│       ├── resources/
+│       │   ├── mapper/             6 个 SQL XML 映射文件
+│       │   ├── applicationContext.xml   Spring 父容器
+│       │   ├── spring-mvc.xml           Spring MVC 子容器
+│       │   ├── mybatis-config.xml       MyBatis 全局配置
+│       │   ├── jdbc.properties          数据库连接模板
+│       │   ├── db-secret.properties     数据库密码（本地，不入 Git）
+│       │   └── log4j.properties         日志配置
+│       └── webapp/WEB-INF/web.xml       Servlet 配置
+│
+├── book-ssm-frontend/              前端（Vue 3 + Vite）
+│   ├── DESIGN.md                   前端设计文档
+│   ├── PRODUCT.md                  产品设计文档
+│   └── src/
+│       ├── utils/request.js        Axios 封装（拦截器 + URLSearchParams）
+│       ├── router/index.js         Vue Router（含导航守卫）
+│       └── views/                  用户端 3 页 + 管理端 7 页
+│
+├── database.md                     数据库设计文档（完整表结构/索引/ER 图）
+└── SSM项目代码审查报告.md          实验逐项审查 + 20 道答辩题库
+```
 
-传统图书门店存在以下痛点：
-- 库存管理依赖纸质台账或 Excel，容易出错且难以追溯
-- 同名图书可能存在不同出版社、不同 ISBN 版本，需精确区分
-- 多批次进货成本不同，出库时需按 FIFO（先进先出）核算成本
-- 订单状态缺乏系统化管理，发货与库存脱节
 
-本系统采用传统 SSM（Spring + Spring MVC + MyBatis）架构，以 WAR 包形式部署到 Tomcat，适用于教学。
+ 三、技术栈与课程实验对照
+
+ 3.1 实验覆盖总览
+| 实验 | 课程要求 | 项目实现 | 关键代码位置 |
+|---|---|---|---|
+| 一：MyBatis 入门 | 核心配置、CRUD映射、日志 | SqlSessionFactoryBean 整合 Spring；6 个 Mapper XML 含完整 CRUD；LOG4J 输出 SQL | `applicationContext.xml:41-51`；`mybatis-config.xml` |
+| 二：参数传递 | {} 与 ${}、@Param、模糊查询、主键回填、批量删除 | 全项目 {} 防注入；CONCAT 模糊查询；useGeneratedKeys 回填主键；foreach 批量删除 | `BookMapper.xml:33,79`；`CartMapper.xml:80-87` |
+| 三：多表查询 | resultMap、多对一、一对多、延迟加载 | book LEFT JOIN category；orders LEFT JOIN user；mybatis-config 启用延迟加载 | `BookMapper.xml:51-54`；`OrderMapper.xml:73-77` |
+| 四：动态 SQL | if/where/foreach/sql/include | 条件分页查询；动态 WHERE；sql 片段复用 | `BookMapper.xml:24-48` |
+| 六：AOP | @Aspect、五种通知、切入点表达式 | LogAspect：@Around 记录 Service 层方法调用参数与耗时 | `com.bookssm.aspect.LogAspect` |
+| 七：事务+JdbcTemplate | 声明式事务、JdbcTemplate CRUD | @Transactional 覆盖所有写操作；JdbcTemplate 共用 Druid 数据源 | `AdminOrderServiceImpl:63,86-135`；`applicationContext.xml:63-66` |
+| 八：SpringMVC | DispatcherServlet、拦截器、@Controller | 父子容器隔离；LoginInterceptor + CorsFilter；@RestController 全 JSON 响应 | `web.xml`；`spring-mvc.xml` |
+| 九：Ajax+REST | axios、@RequestBody、JSON交互 | axios 拦截器自动解包 Result；统一 `{code, message, data}` 格式 | `request.js:10-26`；`Result.java` |
+| 十：SSM 整合 | 父子容器、三层架构、@Autowired | ContextLoaderListener + DispatcherServlet；Controller→Service→Mapper | `web.xml:45-62`；`applicationContext.xml:21-26` |
+
+1. 架构展示（1 分钟） — 打开 `web.xml` + `applicationContext.xml` + `spring-mvc.xml`，说明父子容器分层。
+2. MyBatis 多表 + 动态 SQL（2 分钟） — 打开 `BookMapper.xml`，展示：
+- 第 24-28 行：`<sql>` 公共列片段 + LEFT JOIN category
+- 第 30-48 行：`<if>` + `<where>` 动态条件
+- 第 79 行：`useGeneratedKeys` 主键回填
+- 第 33 行：`CONCAT('%', {title}, '%')` 安全模糊查询
+3. AOP 日志切面（1 分钟） — 打开 `com.bookssm.aspect.LogAspect`，展示 @Around 环绕通知记录耗时。
+4. 声明式事务 + FIFO（3 分钟，重点） — 打开 `AdminOrderServiceImpl.java:86-135`，讲解三层并发控制。
+5. 跨域方案（1 分钟） — 打开 `CorsFilter.java`，说明为什么用 Filter 而非 Spring MVC 配置。
+
+ 四、核心技术亮点详解
+
+ 4.1 FIFO 出库 — 三层并发控制（实验七 / 实验十 体现）
+
+同一图书多批次入库，成本价不同。出库时按入库时间先进先出，从最早批次依次扣减。
+
+代码入口：`AdminOrderServiceImpl.java:86-135` 的 `shipOrderItem()` 方法
+
+三层保护：
+
+| 层级 | 机制 | 代码证据 |
+|---|---|---|
+| 悲观锁 | `SELECT ... FOR UPDATE` 锁定 book 行和所有可用 batch 行 | `StockMapper.xml:findBookStockForUpdate`、`findAvailableBatchesForUpdate` |
+| 乐观锁（CAS） | `UPDATE stock_batch SET remain_quantity=? WHERE id=? AND remain_quantity=?` — 校验 beforeRemain 未被并发修改 | `AdminOrderServiceImpl:111`，affected rows ≠ 1 则回滚 |
+| 事务回滚 | `@Transactional` on `ship()` 方法，任何步骤异常则全部撤销 | `AdminOrderServiceImpl:63` |
+
+演示技巧：准备两组数据（两个批次），讲清楚"为什么先扣旧批次"，然后展示 `stock_record` 中的出库流水。
+
+ 4.2 Spring 父子容器
+
+ContextLoaderListener（父容器）
+  └── applicationContext.xml
+        ├── 管理 Service、Mapper、数据源、事务
+        └── 排除 @Controller、@ControllerAdvice
+
+DispatcherServlet（子容器）
+  └── spring-mvc.xml
+        └── 仅扫描 Controller + ExceptionHandler
+
+为什么这样设计？
+- 子容器可以访问父容器的 bean（Controller 注入 Service）
+- 父容器不能访问子容器的 bean（Service 层看不到 Controller）
+- 保证分层隔离，Service 层不依赖 Web 层
+
+ 4.3 AOP 日志切面
+
+`com.bookssm.aspect.LogAspect`：
+- `@Aspect` + `@Component`，Spring 自动扫描
+- `@Pointcut("execution(* com.bookssm.service..*.*(..))")` 切入所有 Service 方法
+- `@Around` 环绕通知：记录方法签名、参数数量、执行耗时、异常类型
+- 无需修改任何业务代码，横切关注点完全解耦
+
+ 4.4 CORS 跨域
+
+为什么用 Servlet Filter 而非 Spring MVC `<mvc:cors>`？
+
+- OPTIONS 预检请求在 Filter 层就返回 200，不经过 DispatcherServlet
+- 不会被 LoginInterceptor 拦截（否则 OPTIONS 请求也返回 401）
+- `Access-Control-Allow-Origin` 回显具体 Origin（不能用 `*`，因为配置了 `withCredentials: true`）
+
+ 4.5 前后端数据交互
+
+```
+前端 axios 实例（request.js）
+  ├── withCredentials: true       → 携带 Cookie（JSESSIONID）
+  ├── URLSearchParams 表单编码    → Content-Type: application/x-www-form-urlencoded
+  └── 响应拦截器自动解包          → code == 200 时直接返回 data 字段
+
+后端统一响应格式（Result.java）
+  └── { code: 200, message: "success", data: {...} }
+```
+
+ 4.6 密钥与配置分离
+
+数据库密码存储在 `db-secret.properties`（已加入 `.gitignore`），`jdbc.properties` 中通过 `${db.password}` 占位符引用。`applicationContext.xml` 配置两个 properties 文件先后加载，`ignore-unresolvable="true"` 保证本地开发灵活性。
+
+ 4.7 价格快照机制
+`order_item` 表的 `book_title` 和 `book_price` 在下单时从 book 表复制，而非外键引用。即使后续图书涨价或改名，历史订单数据完全不受影响。详见 `OrderServiceImpl.java:55-60`。
+
+ 五、请求处理全链路
+浏览器（localhost:5173）
+  │  axios.post('/api/orders/create', form(data))
+  │  withCredentials: true → Cookie: JSESSIONID=xxx
+  ▼
+Tomcat 9（localhost:8080/book-ssm）
+  │
+  ├── CorsFilter.doFilter()
+  │     └── 添加 CORS 头；OPTIONS 直接返回 200
+  ├── CharacterEncodingFilter（UTF-8）
+  ├── DispatcherServlet
+  │     ├── LoginInterceptor.preHandle()
+  │     │     └── 从 HttpSession 读取 loginUser，null → 401
+  │     ├── Controller.method()
+  │     │     └── @RestController → 返回值自动序列化为 JSON
+  │     ├── Service.method()        ← @Transactional 事务边界
+  │     │     └── LogAspect.around() ← AOP 记录耗时
+  │     ├── Mapper.method()
+  │     │     └── MyBatis → Mapper XML → SQL → MySQL
+  │     └── GlobalExceptionHandler  ← 异常转 {code, message}
+  │
+  ▼  JSON 响应 → 前端 axios 拦截器 → 自动解包 body.data
+```
 
 ---
 
-二、需求分析
-
-2.1 角色定义
-
-| 角色 | 说明 |
-|------|------|
-| 普通用户（USER） | 浏览图书、加入购物车、下单 |
-| 管理员（ADMIN） | 管理图书分类、图书信息、库存入库、处理订单 |
-
-2.2 功能需求
-
-用户端：
-- 注册与登录（Session 机制）
-- 分页搜索图书（按书名、作者、出版社、分类、状态筛选）
-- 购物车管理（添加、修改数量、删除）
-- 从购物车创建订单
-- 查看个人订单列表与详情
-
-管理端：
-- 图书分类 CRUD
-- 图书 CRUD（含上下架操作）
-- 库存入库（创建独立批次，记录供应商和成本价）
-- 批次查询（按图书分页）
-- 库存流水查询（按图书、操作类型筛选）
-- 订单管理：确认订单、FIFO 发货出库
-
-2.3 非功能需求
-
-- Session 登录鉴权，未登录接口返回 401
-- 前端跨域支持（携带 Cookie）
-- 统一 JSON 响应格式
-- 全局异常处理，避免堆栈泄漏
-- 数据库事务保证库存扣减原子性
-
----
-
-三、系统功能模块
-
-```
-图书进销存管理系统
-├── 用户模块
-│   ├── 注册（MD5 密码加密）
-│   ├── 登录/登出（HttpSession）
-│   └── 获取当前用户信息
-├── 分类模块
-│   └── 管理员 CRUD（删除前校验关联图书）
-├── 图书模块
-│   ├── 分页搜索（多条件模糊查询）
-│   ├── 管理员 CRUD
-│   └── 上下架控制
-├── 库存模块
-│   ├── 入库（生成批次号 + 库存流水）
-│   ├── 批次管理（分页查询）
-│   └── 流水查询（按操作类型 IN/OUT 筛选）
-├── 购物车模块
-│   ├── 添加（已存在则累加数量）
-│   ├── 修改数量
-│   └── 删除
-├── 订单模块（用户端）
-│   ├── 从购物车创建订单（价格快照 + 清空购物车）
-│   └── 查询个人订单（列表 + 详情）
-└── 订单模块（管理端）
-    ├── 订单列表（按状态、用户名筛选）
-    ├── 确认订单（PENDING → CONFIRMED）
-    └── 发货出库（CONFIRMED → DELIVERED，FIFO 扣库存）
-```
-
----
-
-## 四、技术架构
-
-### 4.1 架构分层
-
-```
-┌─────────────────────────────────────┐
-│           浏览器 / Vue 前端          │
-├─────────────────────────────────────┤
-│  CorsFilter（跨域）                  │
-│  CharacterEncodingFilter（编码）     │
-├─────────────────────────────────────┤
-│  DispatcherServlet                  │
-│  ├── LoginInterceptor（登录拦截）     │
-│  ├── Controller（REST 接口）         │
-│  └── GlobalExceptionHandler（异常）  │
-├─────────────────────────────────────┤
-│  Service 层（业务逻辑 + 事务）        │
-├─────────────────────────────────────┤
-│  Mapper 层（MyBatis + SQL XML）     │
-├─────────────────────────────────────┤
-│  Druid 连接池 → MySQL 8.x           │
-└─────────────────────────────────────┘
-```
-
-### 4.2 请求处理流程
-
-```
-HTTP 请求
-  → CorsFilter.doFilter()      # 添加 CORS 头，OPTIONS 直接返回 200
-  → CharacterEncodingFilter    # UTF-8 编码
-  → DispatcherServlet
-    → LoginInterceptor.preHandle()  # 校验 Session 登录状态
-    → Controller.method()
-      → Service.method()       # @Transactional 事务边界
-        → Mapper.method()
-          → MyBatis → SQL XML → MySQL
-    → GlobalExceptionHandler   # 异常转 JSON
-  → HTTP 响应
-```
-
-### 4.3 关键配置文件
-
-| 文件 | 说明 |
-|------|------|
-| `web.xml` | Servlet 3.1：CorsFilter → CharacterEncodingFilter → ContextLoaderListener → DispatcherServlet(`/`) |
-| `applicationContext.xml` | Spring 主容器：数据源、SqlSessionFactory、Mapper 扫描、事务管理器 |
-| `spring-mvc.xml` | Spring MVC 子容器：Controller 扫描、注解驱动、拦截器注册 |
-| `mybatis-config.xml` | MyBatis：驼峰命名映射、LOG4J 日志、延迟加载 |
-| `jdbc.properties` | 数据库连接信息 |
-| `log4j.properties` | 日志级别（mapper 包 DEBUG 输出 SQL） |
-
----
-
-## 五、数据库设计
-
-### 5.1 ER 关系
-
-```
-user ──1:N── orders ──1:N── order_item ──N:1── book ──N:1── category
-                │
-user ──1:N── cart_item ──N:1── book
-                             │
-                             book ──1:N── stock_batch
-                             book ──1:N── stock_record
-                                    stock_record ──N:1── stock_batch
-                                    stock_record ──N:1── orders
-```
-
-### 5.2 核心表说明
-
-**user** — 用户表。`role` 字段区分 `ADMIN` 与 `USER`。密码使用 MD5 加盐前哈希存储（教学级别，生产环境应使用 BCrypt）。
-
-**book** — 图书表。以 ISBN 为唯一键，支持区分同名不同出版社的图书（如"三体"的重庆出版社版和猫头鹰出版社版）。`stock` 为冗余字段，由入库/出库操作实时更新。
-
-**stock_batch** — 库存批次表。每次入库创建一条独立批次，记录该批次的成本价和剩余数量。FIFO 出库时按 `created_at` 升序扣减。
-
-**stock_record** — 库存流水表。记录每次入库（IN）和出库（OUT）的详细变动。`before_stock` 和 `after_stock` 记录批次层级的前后库存快照。
-
-**orders** — 订单表。状态流转：`PENDING → CONFIRMED → DELIVERED → COMPLETED`，任意状态可转 `CANCELLED`。
-
-**order_item** — 订单明细表。`book_title` 和 `book_price` 为下单时的快照，避免后续图书信息变更影响历史订单。
-
-
-六、核心业务流程
-
-6.1 用户注册与登录
-
-注册：
-1. 校验 username 不为空且未被占用
-2. 密码 MD5 哈希
-3. 默认角色 USER，状态 1（正常）
-4. 插入 user 表
-
-登录：
-1. 根据 username 查询 user
-2. 比对 MD5 密码
-3. 校验 status 为 1（未被禁用）
-4. 将 User 对象存入 HttpSession（key: "loginUser"）
-
-6.2 创建订单
-
-1. 校验用户已登录
-2. 从购物车查询用户选中的购物车项
-3. 逐项校验：
-   - 图书存在且状态为在售（status=1）
-   - 库存充足（stock >= quantity）
-   - 数量有效（> 0）
-4. 计算每项小计和订单总金额
-5. 生成唯一订单号（ORD + yyyyMMddHHmmss + 6位随机数，DuplicatedKeyException 重试）
-6. 插入 orders 表（状态 PENDING）
-7. 逐项插入 order_item（含图书名和价格快照）
-8. 删除对应购物车项
-
-6.3 库存入库
-
-1. 校验图书存在、数量 > 0、成本价 > 0
-2. SELECT book.stock FOR UPDATE（悲观锁）
-3. 生成唯一批次号（RK + yyyyMMddHHmmssSSS + 6位随机数，重试防重复）
-4. 插入 stock_batch（remain_quantity = quantity）
-5. 更新 book.stock（stock = stock + quantity）
-6. 插入 stock_record（type=IN, before_stock, after_stock, 关联 batch_id）
-
-
-6.4 订单发货 — FIFO 出库
-七、FIFO 出库逻辑（重点）
-
-7.1 设计动机
-同一图书可能分多个批次入库，每次入库的成本价可能不同（供应商差异、时间差异）。出库时采用**先进先出（FIFO）**原则：优先扣减入库时间最早的批次，这样成本核算更合理，也能避免老旧批次长期积压。
-
-7.2 执行流程
-
-```
-发货方法：AdminOrderServiceImpl.ship(operatorId, orderId)
-
-前置条件：
-- 操作人为 ADMIN 角色
-- 订单状态为 CONFIRMED（已确认）
-
-对订单中每个 order_item 执行：
-
-1. SELECT book.stock FOR UPDATE          ← 悲观锁，防止并发修改库存
-   if stock == null → 抛异常 "图书不存在"
-   if stock < quantity → 抛异常 "库存不足"
-
-2. 查询可用批次（按 created_at ASC，remain_quantity > 0）
-   SELECT * FROM stock_batch
-   WHERE book_id = ? AND remain_quantity > 0
-   ORDER BY created_at ASC
-   FOR UPDATE                            ← 悲观锁，锁定所有可用批次
-
-3. 遍历批次逐一扣减：
-   for each batch (按时间从早到晚):
-     if needQuantity <= 0: break         ← 已扣够，停止
-     beforeRemain = batch.remainQuantity
-     if beforeRemain <= 0: continue      ← 跳过空批次
-
-     deductQuantity = min(beforeRemain, needQuantity)
-     afterRemain = beforeRemain - deductQuantity
-
-     UPDATE stock_batch                  ← 乐观锁：WHERE remain_quantity = beforeRemain
-     SET remain_quantity = afterRemain
-     WHERE id = ? AND remain_quantity = beforeRemain
-     if affected_rows != 1 → 抛异常 "批次库存扣减失败"
-
-     INSERT INTO stock_record            ← 记录出库流水
-       (type=OUT, quantity=-deductQuantity,
-        before_stock=beforeRemain, after_stock=afterRemain,
-        order_id=orderId, batch_id=batchId)
-
-     needQuantity -= deductQuantity
-
-4. 校验：if needQuantity > 0 → 抛异常 "库存不足"
-
-5. 更新 book.stock = book.stock - quantity  ← 更新冗余库存
-
-6. UPDATE orders SET status='DELIVERED'   ← 更新订单状态
-
-7.3 并发安全保证
-
-| 机制 | 说明 |
-|------|------|
-| `SELECT ... FOR UPDATE`（悲观锁） | 锁定 book 行 + 所有可用 batch 行，阻止并发发货同时操作 |
-| `UPDATE ... WHERE remain_quantity = ?`（乐观锁） | 二次校验：如果并发发货已在步骤间修改了 remain_quantity，更新失败回滚 |
-| `@Transactional` | 整个发货流程在同一事务中，任何失败全部回滚 |
-
-7.4 示例
-
-图书"三体（重庆出版社）"库存 100 本，分两批次入库：
-
-| 批次 | 入库时间 | 入库数量 | 剩余 | 成本价 |
-|------|----------|----------|------|--------|
-| RK001 | 2026-05-01 | 60 | 60 | 15.00 |
-| RK002 | 2026-05-10 | 40 | 40 | 18.00 |
-
-用户下单购买 80 本，发货时：
-1. 先从 RK001 扣 60 本（剩余 0）— 成本 15.00 × 60
-2. 再从 RK002 扣 20 本（剩余 20）— 成本 18.00 × 20
-
-出库后：RK001 remain=0，RK002 remain=20，book.stock=20。
-
-
-八、CORS 跨域解决方案
-
-### 8.1 问题描述
-
-Vue 前端运行在 `http://localhost:5173`，SSM 后端部署在 `http://localhost:8084/book_ssm_war`。浏览器同源策略阻止跨域请求，尤其项目使用 Session + Cookie 登录，需要携带凭证。
-
-### 8.2 方案选择
-
-选择 **Servlet Filter** 而非 Spring MVC `<mvc:cors>` 配置，原因：
-
-- Filter 在所有请求到达 DispatcherServlet **之前**执行，OPTIONS 预检请求不会被 LoginInterceptor 拦截
-- 更精确控制 Origin 白名单和 Credentials 设置
-- 不依赖 Spring MVC 版本差异
-
-8.3 实现要点
-
-```java
-// CorsFilter.doFilter() 核心逻辑
-String origin = request.getHeader("Origin");
-if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
-    response.setHeader("Access-Control-Allow-Origin", origin);       // 回显具体 origin
-    response.setHeader("Access-Control-Allow-Credentials", "true");
-    response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-}
-
-if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-    response.setStatus(200);
-    return;  // 不继续传递，避免后续拦截器处理 OPTIONS
-}
-```
-
-**关键细节**：当 `Access-Control-Allow-Credentials: true` 时，`Access-Control-Allow-Origin` **不能**为 `*`，必须根据请求的 `Origin` 头回显具体值。这是浏览器 W3C CORS 规范的硬性要求。
-
----
-
-九、系统测试
-
-9.1 测试环境
-
-| 组件 | 地址 | 说明 |
-|------|------|------|
-| 后端 API | `http://localhost:8084/book_ssm_war` | Tomcat 9 |
-| 前端 | `http://localhost:5173` | Vite 开发服务器 |
-| 数据库 | `localhost:3306/book_inventory` | MySQL 8.x |
-
-9.2 测试用例（部分）
-
-健康检查：
-```
-GET http://localhost:8084/book_ssm_war/api/health
-→ 200 {"code":200,"message":"success","data":{"status":"UP",...}}
-```
-用户注册：
-```
-POST /api/auth/register
-Body: username=testuser&password=123456
-→ 200 {"code":200,"message":"注册成功","data":null}
-```
-
-用户登录：
-```
-POST /api/auth/login
-Body: username=admin&password=123456
-→ 200 {"code":200,"message":"登录成功","data":{"id":1,"username":"admin",...}}
-Set-Cookie: JSESSIONID=xxx
-```
-
-CORS 预检：
-```
-OPTIONS /api/categories
-Origin: http://localhost:5173
-→ 200
-Access-Control-Allow-Origin: http://localhost:5173
-Access-Control-Allow-Credentials: true
-```
-
-登录拦截：
-```
-GET /api/categories (不携带 Cookie)
-→ 401 {"code":401,"message":"请先登录","data":null}
-```
-
-图书搜索：
-```
-GET /api/books?title=Java&page=1&pageSize=10
-→ 200 {"code":200,"data":{"total":2,"list":[...],...}}
-```
-
-创建订单：
-```
-POST /api/orders/create
-cartItemIds=1,2&receiverName=张三&receiverPhone=13800000001&receiverAddress=北京市
-→ 200 返回订单详情，购物车项被清空
-```
-
-FIFO 发货：
-```
-PUT /api/admin/orders/{id}/ship
-→ 200 订单状态变为 DELIVERED
-验证：stock_batch.remain_quantity 按时间顺序递减
-验证：stock_record 插入 OUT 记录
-验证：book.stock 同步递减
-```
-
-9.3 已知限制
-
-1. 权限粒度：图书/分类/库存的 CRUD 接口未在代码层面强制校验 ADMIN 角色（仅依赖 LoginInterceptor 校验登录）。管理员接口通过前端路由守卫限制访问，但后端存在提升空间。
-2. 密码安全：使用单次 MD5 哈希，生产环境应升级为 BCrypt 或 Argon2。
-3. 无支付流程：订单无在线支付环节，确认和发货均由管理员手动操作。
-4. 无退货/退款：不支持订单取消后的库存回退。
-5. 无图片上传：`cover_image` 字段仅支持 URL 字符串输入。
-6. 单机部署：Session 存储于 Tomcat 内存，不支持集群。生产环境可改为 Redis 共享 Session 或 JWT。
-
----
-
-十、总结
-
-本项目完整实现了一个基于传统 SSM 架构的图书进销存管理系统，覆盖了用户端选购下单和后台进销存管理的核心流程。
-
-架构亮点：
-- 严格的三层分离：Controller → Service → Mapper
-- XML 配置驱动的 Spring/MyBatis 整合（非 Spring Boot 自动配置）
-- Servlet Filter 解决 CORS 跨域（含 Credentials 支持）
-- HandlerInterceptor 实现 Session 登录鉴权
-
-业务亮点：
-- FIFO 出库：悲观锁 + 乐观锁双重并发控制，批次级库存追踪
-- 订单价格快照：下单时锁定书名和价格，避免后续变更影响历史订单
-- 批次号/订单号唯一性：带时间戳前缀 + 随机后缀 + 重试机制
-- 库存冗余：`book.stock` 作为汇总字段，与批次扣减同步更新，查询性能优于 SUM 聚合
+ 六、数据库设计摘要
+ 
+
+8 张 InnoDB 表
+ 
+
+ 七、快速演示流程（5 分钟）
+
+| 步骤 | 操作 | 展示要点 |
+|---|---|---|
+| 1 | 访问 `/api/health/db` | 展示 JdbcTemplate 查询 MySQL 版本号 |
+| 2 | 用 admin 登录 | Session 鉴权，查看 Set-Cookie 响应头 |
+| 3 | 搜索图书 `GET /api/books?title=三体` | 同名不同出版社的同名图书；动态 SQL 查询 |
+| 4 | 管理员入库 `POST /api/stocks/in` | 生成批次号 + stock_record 流水记录 |
+| 5 | 用户下单 `POST /api/orders/create` | 价格快照 + 购物车清空 |
+| 6 | 管理员发货 `PUT /api/admin/orders/{id}/ship` | FIFO 出库——查看 stock_batch.remain_quantity 递减顺序 |
+| 7 | 打开 Tomcat 日志 | 展示 LogAspect 输出：`>>> BookServiceImpl.list(6 args) 开始 ... 结束，耗时 23 ms` |
+| 8 | 访问受保护接口（不带 Cookie） | 展示 LoginInterceptor 返回 401 |
+
+ 八、测试账号
+
+| 角色 | 用户名 | 密码 |
+|---|---|---|
+| 管理员 | admin | 123456 |
+| 普通用户 | zhangsan | 123456 |
 
