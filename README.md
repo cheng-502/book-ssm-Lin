@@ -5,11 +5,18 @@
 ## 项目结构
 
 ```
-├── book-ssm/                # 后端（SSM + Maven + Tomcat）
-│   ├── sql/                 # 数据库脚本
-│   ├── README.md            # 后端详细文档
-│   └── DEVELOPMENT.md       # 开发文档
-└── book-ssm-frontend/       # 前端（Vue 3 + Vite）
+├── book-ssm/                    # 后端（SSM + Maven + Tomcat 9）
+│   ├── sql/                    # 数据库脚本
+│   ├── README.md               # 后端详细文档
+│   ├── DEVELOPMENT.md          # 开发文档
+│   └── src/main/resources/
+│       ├── db-secret.properties # 数据库密码（本地，不提交 Git）
+│       └── jdbc.properties      # 数据库连接模板
+├── book-ssm-frontend/           # 前端（Vue 3 + Vite）
+│   ├── DESIGN.md               # 前端设计文档
+│   └── PRODUCT.md              # 产品设计文档
+├── database.md                  # 数据库设计文档
+└── SSM项目代码审查报告.md       # 课程实验审查报告
 ```
 
 ## 技术栈
@@ -17,7 +24,8 @@
 | 层级 | 技术 |
 |------|------|
 | 后端框架 | Spring 5.3.30 + Spring MVC + MyBatis 3.5.14 |
-| 数据库 | MySQL 8.x + Druid 1.2.20 |
+| AOP | AspectJ + 自定义日志切面（LogAspect） |
+| 数据库 | MySQL 8.x + Druid 1.2.20 + JdbcTemplate |
 | 前端 | Vue 3.5 + Vite 6 + Element Plus 2.9 + Axios |
 | 部署 | WAR 包 → Tomcat 9 |
 
@@ -32,15 +40,22 @@ mysql -u root -p book_inventory < book-ssm/sql/book_inventory.sql
 
 ### 2. 配置数据库连接
 
-编辑 `book-ssm/src/main/resources/jdbc.properties`，修改 `jdbc.username` 和 `jdbc.password`。
+在 `book-ssm/src/main/resources/` 下创建 `db-secret.properties`：
+
+```properties
+db.password=你的MySQL密码
+```
+
+`jdbc.properties` 通过 `${db.password}` 占位符引用，密码文件已加入 `.gitignore`。
 
 ### 3. 启动后端
 
 ```bash
 cd book-ssm
 mvn clean package -DskipTests
-# 将 target/book-ssm.war 部署到 Tomcat webapps 目录
-# 访问 http://localhost:8084/book_ssm_war/api/health
+# 将 target/book-ssm.war 部署到 Tomcat 9 webapps 目录
+# 访问 http://localhost:8080/book-ssm/api/health
+# 测试 JdbcTemplate: GET /api/health/db
 ```
 
 ### 4. 启动前端
@@ -69,9 +84,16 @@ npm run dev
 - **Session 登录** — HttpSession + LoginInterceptor 拦截鉴权
 - **CORS 跨域** — Servlet Filter 在 DispatcherServlet 前处理，支持 Credentials
 - **FIFO 出库** — 悲观锁（FOR UPDATE）+ 乐观锁（remain_quantity 校验）保证并发安全
+- **AOP 日志切面** — @Aspect 切面记录 Service 层方法调用参数与耗时
+- **JdbcTemplate** — 共用 Druid 数据源，演示 Spring JDBC 基本查询
 - **统一异常处理** — GlobalExceptionHandler 捕获所有异常，返回 JSON
+- **密钥分离** — 数据库密码通过 `db-secret.properties` 独立管理，不入版本库
 
 ## 详细文档
 
 - [后端 README](book-ssm/README.md) — API 接口、数据库设计、完整项目结构
 - [开发文档](book-ssm/DEVELOPMENT.md) — 需求分析、技术架构、核心流程、FIFO 详解
+- [数据库设计](database.md) — 表结构、ER 关系、索引策略
+- [前端设计文档](book-ssm-frontend/DESIGN.md) — 前端架构与设计说明
+- [产品设计文档](book-ssm-frontend/PRODUCT.md) — 产品功能与交互说明
+- [代码审查报告](SSM项目代码审查报告.md) — 课程实验逐项审查与答辩题库
