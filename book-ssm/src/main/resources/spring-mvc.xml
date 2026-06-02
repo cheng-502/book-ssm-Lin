@@ -39,6 +39,7 @@
             <mvc:exclude-mapping path="/api/auth/login"/>
             <mvc:exclude-mapping path="/api/auth/register"/>
             <mvc:exclude-mapping path="/api/health"/>
+            <mvc:exclude-mapping path="/api/health/db"/>
             <bean class="com.bookssm.interceptor.LoginInterceptor"/>
         </mvc:interceptor>
     </mvc:interceptors>
